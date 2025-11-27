@@ -1,23 +1,22 @@
 import os
 import asyncio
-import json
-from fastapi import FastAPI, Request
 import requests
+from fastapi import FastAPI, Request
 from TikTokLive import TikTokLiveClient
 from TikTokLive.events import ConnectEvent
 import uvicorn
 
 # ---- 環境変数 ----
-LINE_TOKEN = os.getenv("2008577971")  # チャネルアクセストークン
-TARGET_USER = os.getenv("yuumi_takaki05")  # TikTokユーザーID（@なし）
+LINE_TOKEN = os.getenv("2008577971")
+TARGET_USER = os.getenv("yuumi_takaki05")
+PORT = int(os.getenv("PORT", 10000))  # Render が割り当てるポート
 
 if not LINE_TOKEN or not TARGET_USER:
     raise ValueError("LINE_TOKEN または TARGET_USER が設定されていません")
 
-# ---- 送信先ユーザーIDリスト ----
-USER_IDS = set()  # Webhookで登録されたuserIdを保持
+# ---- LINE送信先ユーザーIDリスト（Webhook経由で登録） ----
+USER_IDS = set()
 
-# ---- LINE送信関数 ----
 def send_line_message(user_ids, msg):
     url = "https://api.line.me/v2/bot/message/push"
     headers = {
@@ -33,16 +32,16 @@ def send_line_message(user_ids, msg):
         if response.status_code != 200:
             print(f"LINE送信エラー {user_id}: {response.status_code} {response.text}")
 
-# ---- TikTokLive クライアント ----
+# ---- TikTokLiveClient ----
 client = TikTokLiveClient(unique_id=TARGET_USER)
 
 @client.on(ConnectEvent)
 async def on_connect(event: ConnectEvent):
-    msg = f"{TARGET_USER} さんが TikTokライブを開始しました！"
+    msg = f"🔴 {TARGET_USER} さんが TikTokライブを開始しました！"
     print(msg)
     send_line_message(USER_IDS, msg)
 
-# ---- FastAPI Webhookサーバ ----
+# ---- FastAPI Webhook ----
 app = FastAPI()
 
 @app.post("/webhook")
@@ -57,11 +56,18 @@ async def webhook(req: Request):
                 print(f"新規ユーザー登録: {user_id}")
     return {"status": "ok"}
 
-# ---- TikTokライブ監視 + Webhookサーバ 並列実行 ----
+# ---- Uvicornを非同期で実行する関数 ----
+async def start_webhook_server():
+    config = uvicorn.Config(app, host="0.0.0.0", port=PORT, log_level="info")
+    server = uvicorn.Server(config)
+    await server.serve()
+
+# ---- メイン関数 ----
 async def main():
+    # TikTokLive と Webhook を並列で起動
     tiktok_task = asyncio.create_task(client.start())
-    uvicorn_task = asyncio.create_task(uvicorn.run(app, host="0.0.0.0", port=10000))
-    await asyncio.gather(tiktok_task, uvicorn_task)
+    webhook_task = asyncio.create_task(start_webhook_server())
+    await asyncio.gather(tiktok_task, webhook_task)
 
 if __name__ == "__main__":
     asyncio.run(main())
