@@ -2,27 +2,38 @@ from TikTokLive import TikTokLiveClient
 from TikTokLive.types.events import ConnectEvent
 import requests
 import os
+import asyncio
 
-TARGET_USER = os.getenv("TARGET_USER")
-LINE_TOKEN = os.getenv("LINE_NOTIFY_TOKEN")
+LINE_TOKEN = os.getenv("LINE_TOKEN")
+TARGET_USER = os.getenv("TARGET_USER")  # 監視するTikTokユーザーID
 
-client = TikTokLiveClient(unique_id=TARGET_USER)
-
-def send_line_message(message):
+def send_line(msg: str):
     url = "https://notify-api.line.me/api/notify"
-    headers = {
-        "Authorization": f"Bearer {LINE_TOKEN}"
-    }
-    data = {
-        "message": message
-    }
+    headers = {"Authorization": f"Bearer {LINE_TOKEN}"}
+    data = {"message": msg}
     requests.post(url, headers=headers, data=data)
 
+# ---- TikTokLive クライアント ----
+client = TikTokLiveClient(unique_id=TARGET_USER)
+
+# ---- 接続イベント ----
 @client.on(ConnectEvent)
-async def on_connect(event):
-    msg = f"{TARGET_USER} がライブ配信を開始しました！"
+async def on_connect(event: ConnectEvent):
+    user_name = TARGET_USER  # 今回は固定ユーザーIDを表示
+    msg = f"{user_name} さんが TikTokライブを開始しました！"
     print(msg)
-    send_line_message(msg)
+    send_line(msg)
+
+# ---- TikTok に常時接続 ----
+async def main():
+    while True:
+        try:
+            await client.start()
+        except Exception as e:
+            print("Error:", e)
+            send_line(f"⚠ エラー発生: {e}")
+            await asyncio.sleep(5)  # 5秒後リトライ
 
 if __name__ == "__main__":
-    client.run()
+    asyncio.run(main())
+
