@@ -5,7 +5,7 @@ import os
 import asyncio
 
 LINE_TOKEN = os.getenv("LINE_TOKEN")
-TARGET_USER = os.getenv("TARGET_USER")  # 監視するTikTokユーザーID
+TARGET_USER = os.getenv("yuumi_takaki05")  # 監視するTikTokユーザーID
 
 def send_line(msg: str):
     url = "https://notify-api.line.me/api/notify"
