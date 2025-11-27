@@ -9,12 +9,14 @@ import uvicorn
 # ---- 環境変数 ----
 LINE_TOKEN = os.getenv("LINE_TOKEN")
 TARGET_USER = os.getenv("TARGET_USER")
-PORT = int(os.getenv("PORT", 10000))  # Render が割り当てるポート
+PORT = int(os.getenv("PORT", 10000))
 
-if not LINE_TOKEN or not TARGET_USER:
-    raise ValueError("LINE_TOKEN または TARGET_USER が設定されていません")
+if not LINE_TOKEN:
+    raise ValueError("環境変数 LINE_TOKEN が設定されていません")
+if not TARGET_USER:
+    raise ValueError("環境変数 TARGET_USER が設定されていません")
 
-# ---- LINE送信先ユーザーIDリスト（Webhook経由で登録） ----
+# ---- LINE送信先ユーザーIDリスト ----
 USER_IDS = set()
 
 def send_line_message(user_ids, msg):
@@ -28,9 +30,12 @@ def send_line_message(user_ids, msg):
             "to": user_id,
             "messages": [{"type": "text", "text": msg}]
         }
-        response = requests.post(url, headers=headers, json=data)
-        if response.status_code != 200:
-            print(f"LINE送信エラー {user_id}: {response.status_code} {response.text}")
+        try:
+            response = requests.post(url, headers=headers, json=data, timeout=5)
+            if response.status_code != 200:
+                print(f"LINE送信エラー {user_id}: {response.status_code} {response.text}")
+        except Exception as e:
+            print(f"LINE送信例外 {user_id}: {e}")
 
 # ---- TikTokLiveClient ----
 client = TikTokLiveClient(unique_id=TARGET_USER)
@@ -56,18 +61,23 @@ async def webhook(req: Request):
                 print(f"新規ユーザー登録: {user_id}")
     return {"status": "ok"}
 
-# ---- Uvicornを非同期で実行する関数 ----
+# ---- 非同期で uvicorn 起動 ----
 async def start_webhook_server():
     config = uvicorn.Config(app, host="0.0.0.0", port=PORT, log_level="info")
     server = uvicorn.Server(config)
     await server.serve()
 
-# ---- メイン関数 ----
+# ---- 安定版 main ----
 async def main():
-    # TikTokLive と Webhook を並列で起動
-    tiktok_task = asyncio.create_task(client.start())
-    webhook_task = asyncio.create_task(start_webhook_server())
-    await asyncio.gather(tiktok_task, webhook_task)
+    while True:
+        try:
+            tiktok_task = asyncio.create_task(client.start())
+            webhook_task = asyncio.create_task(start_webhook_server())
+            await asyncio.gather(tiktok_task, webhook_task)
+        except Exception as e:
+            print(f"メインループ例外: {e}")
+            await asyncio.sleep(5)  # 少し待って再起動
 
 if __name__ == "__main__":
     asyncio.run(main())
+
