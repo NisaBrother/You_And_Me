@@ -7,8 +7,8 @@ from TikTokLive.events import ConnectEvent
 import uvicorn
 
 # ---- 環境変数 ----
-LINE_TOKEN = os.getenv("2008577971")
-TARGET_USER = os.getenv("yuumi_takaki05")
+LINE_TOKEN = os.getenv("LINE_TOKEN")
+TARGET_USER = os.getenv("TARGET_USER")
 PORT = int(os.getenv("PORT", 10000))  # Render が割り当てるポート
 
 if not LINE_TOKEN or not TARGET_USER:
