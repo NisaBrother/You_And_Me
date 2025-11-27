@@ -1,5 +1,5 @@
 from TikTokLive import TikTokLiveClient
-from TikTokLive.types.events import ConnectEvent
+from TikTokLive.events import ConnectEvent
 import requests
 import os
 import asyncio
