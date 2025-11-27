@@ -1,7 +1,5 @@
 requests
-python-dotenv
 TikTokLive
 websockets
-fastapi
-uvicorn
+
 
