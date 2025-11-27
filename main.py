@@ -9,7 +9,7 @@ import uvicorn
 # ---- 環境変数 ----
 LINE_TOKEN = os.getenv("LINE_TOKEN")
 TARGET_USER = os.getenv("TARGET_USER")
-PORT = int(os.getenv("PORT", 10000))
+PORT = int(os.getenv("PORT", 10000))  # Render が割り当てるポート
 
 if not LINE_TOKEN:
     raise ValueError("環境変数 LINE_TOKEN が設定されていません")
@@ -63,6 +63,7 @@ async def webhook(req: Request):
 
 # ---- 非同期で uvicorn 起動 ----
 async def start_webhook_server():
+    # Render環境のPORTで起動するため固定ポートは使用しない
     config = uvicorn.Config(app, host="0.0.0.0", port=PORT, log_level="info")
     server = uvicorn.Server(config)
     await server.serve()
@@ -71,6 +72,7 @@ async def start_webhook_server():
 async def main():
     while True:
         try:
+            # TikTokLive と Webhook サーバを並列で起動
             tiktok_task = asyncio.create_task(client.start())
             webhook_task = asyncio.create_task(start_webhook_server())
             await asyncio.gather(tiktok_task, webhook_task)
@@ -80,4 +82,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
