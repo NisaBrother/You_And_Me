@@ -10,7 +10,7 @@ import uvicorn
 LINE_TOKEN = os.getenv("LINE_TOKEN")        # LINEチャネルアクセストークン
 TARGET_USER = os.getenv("TARGET_USER")      # TikTok配信者ID（@なし）
 MY_USER_ID = os.getenv("MY_USER_ID")        # 自分のLINE userId
-PORT = int(os.getenv("PORT", 10000))       # Render が割り当てるポート
+PORT = int(os.getenv("PORT", 8000))        # Render が割り当てるポート
 
 if not LINE_TOKEN or not TARGET_USER or not MY_USER_ID:
     raise ValueError("LINE_TOKEN, TARGET_USER, MY_USER_ID の環境変数を設定してください")
@@ -42,7 +42,7 @@ async def on_connect(event: ConnectEvent):
     print(msg)
     send_line_message(MY_USER_ID, msg)
 
-# ---- FastAPIサーバー（Render 用健康チェック用） ----
+# ---- FastAPIサーバー（Render 用健康チェック） ----
 app = FastAPI()
 
 @app.get("/health")
@@ -68,3 +68,5 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+
