@@ -41,26 +41,23 @@ async def on_connect(event: ConnectEvent):
     print(msg)
     await send_line_message(MY_USER_ID, msg)
 
-# ---- 非同期でTikTokClientを起動（オフラインでもリトライ） ----
+# ---- TikTokClient起動（オフライン・未検出でもリトライ） ----
 async def start_tiktok_client():
     while True:
         try:
-            print("TikTokLiveClient を起動します...")
+            print(f"TikTokLiveClient を {TARGET_USER} のために起動します...")
             await client.start()
         except UserOfflineError:
-            # ユーザーがオフラインのときは5秒待って再試行
             print(f"{TARGET_USER} は現在オフラインです。5秒後に再接続します...")
             await asyncio.sleep(5)
         except UserNotFoundError:
-            # ユーザー名が間違っている場合はログを出して終了
-            print(f"{TARGET_USER} が見つかりません。ユーザー名を確認してください。")
-            break
+            print(f"{TARGET_USER} が見つかりません。30秒後に再試行します...")
+            await asyncio.sleep(30)
         except Exception as e:
-            # その他の例外はログを出して少し待って再接続
-            print(f"TikTokLiveClient 例外: {e}")
-            await asyncio.sleep(5)
+            print(f"TikTokLiveClient 例外: {e} 10秒後に再接続します...")
+            await asyncio.sleep(10)
 
-# ---- FastAPIサーバー（Render 用健康チェック） ----
+# ---- FastAPIサーバー（健康チェック用） ----
 app = FastAPI()
 
 @app.get("/health")
