@@ -2,51 +2,42 @@ import os
 import asyncio
 import requests
 from TikTokLive import TikTokLiveClient
-from TikTokLive.events import ConnectEvent
+from TikTokLive.types.events import LiveStartEvent
 
 # ---- 環境変数 ----
-LINE_TOKEN = os.getenv("LINE_TOKEN")        # LINE公式アカウントのチャネルアクセストークン
-TARGET_USER = os.getenv("TARGET_USER")      # 監視するTikTok配信者ID（@なし）
-MY_USER_ID = os.getenv("MY_USER_ID")        # 自分のLINE userId
+TARGET_USER = os.getenv("TARGET_USER")       # TikTok ユーザーID
+LINE_TOKEN   = os.getenv("LINE_TOKEN")       # LINE Bot のチャネルアクセストークン
+MY_USER_ID   = os.getenv("MY_USER_ID")       # 自分の LINE userId
 
-if not LINE_TOKEN or not TARGET_USER or not MY_USER_ID:
-    raise ValueError("LINE_TOKEN, TARGET_USER, MY_USER_ID の環境変数を設定してください")
+if not (TARGET_USER and LINE_TOKEN and MY_USER_ID):
+    raise ValueError("TARGET_USER, LINE_TOKEN, MY_USER_ID の環境変数を設定してください")
 
-# ---- LINE通知関数 ----
-def send_line_message(user_id, msg):
-    url = "https://api.line.me/v2/bot/message/push"
+# ---- LINE 通知関数 ----
+def send_line_message(message: str):
     headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {LINE_TOKEN}"
+        "Authorization": f"Bearer {LINE_TOKEN}",
+        "Content-Type": "application/json"
     }
     data = {
-        "to": user_id,
-        "messages": [{"type": "text", "text": msg}]
+        "to": MY_USER_ID,
+        "messages": [{"type": "text", "text": message}]
     }
-    try:
-        response = requests.post(url, headers=headers, json=data, timeout=5)
-        if response.status_code != 200:
-            print(f"LINE送信エラー: {response.status_code} {response.text}")
-    except Exception as e:
-        print(f"LINE送信例外: {e}")
+    r = requests.post("https://api.line.me/v2/bot/message/push", headers=headers, json=data)
+    if r.status_code != 200:
+        print(f"LINE通知エラー: {r.status_code}, {r.text}")
 
-# ---- TikTokライブ監視 ----
-client = TikTokLiveClient(unique_id=TARGET_USER)
-
-@client.on(ConnectEvent)
-async def on_connect(event: ConnectEvent):
-    msg = f"🔴 {TARGET_USER} さんが TikTokライブを開始しました！"
-    print(msg)
-    send_line_message(MY_USER_ID, msg)
-
-# ---- メインループ（落ちても自動再接続） ----
+# ---- TikTok 監視 ----
 async def main():
-    while True:
-        try:
-            await client.start()  # TikTokライブ監視
-        except Exception as e:
-            print(f"例外発生: {e}")
-            await asyncio.sleep(5)  # 5秒待って再接続
+    client = TikTokLiveClient(unique_id=TARGET_USER)
 
+    @client.on("live_start")
+    async def on_live_start(event: LiveStartEvent):
+        print(f"{TARGET_USER} の配信開始を検知！")
+        send_line_message(f"{TARGET_USER} がライブ配信を開始しました！")
+
+    print("TikTokLiveClient started")
+    await client.start()
+
+# ---- 実行 ----
 if __name__ == "__main__":
     asyncio.run(main())
