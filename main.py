@@ -47,12 +47,14 @@ async def on_connect(event: ConnectEvent):
     print(msg)
     await send_line_message(MY_USER_ID, msg)
 
-# ---- 配信終了通知（文字列イベントを使う） ----
-@client.on("disconnect")
+# ---- 配信終了通知 ----
 async def on_disconnect(event):
     msg = f"⚪ {TARGET_USER} さんのTikTokライブが終了しました。"
     print(msg)
     await send_line_message(MY_USER_ID, msg)
+
+# disconnect イベントを登録
+client.add_listener("disconnect", on_disconnect)
 
 # ---- TikTokClient起動（オフライン・未検出でもリトライ） ----
 async def start_tiktok_client():
