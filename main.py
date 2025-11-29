@@ -47,9 +47,9 @@ async def on_connect(event: ConnectEvent):
     print(msg)
     await send_line_message(MY_USER_ID, msg)
 
-# ---- 配信終了通知 ----
-@client.on(DisconnectEvent)
-async def on_disconnect(event: DisconnectEvent):
+# ---- 配信終了通知（文字列イベントを使う） ----
+@client.on("disconnect")
+async def on_disconnect(event):
     msg = f"⚪ {TARGET_USER} さんのTikTokライブが終了しました。"
     print(msg)
     await send_line_message(MY_USER_ID, msg)
