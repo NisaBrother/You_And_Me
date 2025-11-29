@@ -35,42 +35,54 @@ async def send_line_message(user_id, msg):
 # ---- TikTokライブ監視 ----
 client = TikTokLiveClient(unique_id=TARGET_USER)
 
+is_live = False
+
 @client.on(ConnectEvent)
 async def on_connect(event: ConnectEvent):
-    # 配信URLが取得可能な場合
-    try:
-        url = f"https://www.tiktok.com/@{TARGET_USER}/live"
-    except Exception:
-        url = "URL取得不可"
-        
+    global is_live
+
+    # すでにライブ中として認識している場合は通知しない
+    if is_live:
+        print("すでにライブ中として認識しています。通知しません。")
+        return
+
+    # 初回のみ通知
+    is_live = True
+
+    url = f"https://www.tiktok.com/@{TARGET_USER}/live"
     msg = f"🔴 {TARGET_USER} さんがTikTokライブを開始しました！\n{url}"
+
     print(msg)
     await send_line_message(MY_USER_ID, msg)
 
-# ---- 配信終了通知 ----
-async def on_disconnect(event):
-    msg = f"⚪ {TARGET_USER} さんのTikTokライブが終了しました。"
-    print(msg)
-    await send_line_message(MY_USER_ID, msg)
-
-# disconnect イベントを登録
-client.add_listener("disconnect", on_disconnect)
 
 # ---- TikTokClient起動（オフライン・未検出でもリトライ） ----
 async def start_tiktok_client():
+    global is_live
+
     while True:
         try:
             print(f"TikTokLiveClient を {TARGET_USER} のために起動します...")
             await client.start()
+
         except UserOfflineError:
-            print(f"{TARGET_USER} は現在オフラインです。5秒後に再接続します...")
+            print(f"{TARGET_USER} がオフラインになりました。")
+            # ライブ終了 → 次の配信で通知できるようにリセット
+            is_live = False
+
             await asyncio.sleep(5)
+
         except UserNotFoundError:
             print(f"{TARGET_USER} が見つかりません。30秒後に再試行します...")
             await asyncio.sleep(30)
+
         except Exception as e:
             print(f"TikTokLiveClient 例外: {e} 10秒後に再接続します...")
+            # 念のためリセット（異常再接続時でも次回通知できるように）
+            is_live = False
+
             await asyncio.sleep(10)
+
 
 # ---- FastAPIサーバー（健康チェック用） ----
 app = FastAPI()
