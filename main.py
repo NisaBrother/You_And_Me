@@ -37,7 +37,20 @@ client = TikTokLiveClient(unique_id=TARGET_USER)
 
 @client.on(ConnectEvent)
 async def on_connect(event: ConnectEvent):
-    msg = f"🔴 {TARGET_USER} さんがTikTokライブを開始しました！"
+    # 配信URLが取得可能な場合
+    try:
+        url = f"https://www.tiktok.com/@{TARGET_USER}/live"
+    except Exception:
+        url = "URL取得不可"
+        
+    msg = f"🔴 {TARGET_USER} さんがTikTokライブを開始しました！\n{url}"
+    print(msg)
+    await send_line_message(MY_USER_ID, msg)
+
+# ---- 配信終了通知 ----
+@client.on(DisconnectEvent)
+async def on_disconnect(event: DisconnectEvent):
+    msg = f"⚪ {TARGET_USER} さんのTikTokライブが終了しました。"
     print(msg)
     await send_line_message(MY_USER_ID, msg)
 
