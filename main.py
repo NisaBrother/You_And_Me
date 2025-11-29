@@ -49,8 +49,7 @@ async def on_connect(event: ConnectEvent):
     # 初回のみ通知
     is_live = True
 
-    url = f"https://www.tiktok.com/@{TARGET_USER}/live"
-    msg = f"🔴 {TARGET_USER} さんがTikTokライブを開始しました！\n{url}"
+    msg = f"🔴 {TARGET_USER} さんがTikTokライブを開始しました！"
 
     print(msg)
     await send_line_message(MY_USER_ID, msg)
