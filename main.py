@@ -134,11 +134,7 @@ async def supervisor_loop():
             web_proc.terminate()
 
 
-# ------------------------- Worker -------------------------
-# The worker code is intentionally separated and executed only when the script
-# is invoked with the 'worker' argument. This isolates crashes/memory growth.
-
-WORKER_SCRIPT = r"""
+WORKER_SCRIPT = f"""
 # This code runs inside the worker subprocess.
 # It provides similar logic to your original implementation but adds a heartbeat file
 # and robust exception handling / automatic reconnect.
@@ -158,8 +154,8 @@ TARGET_USER = os.getenv('TARGET_USER')
 MY_USER_ID = os.getenv('MY_USER_ID')
 PORT = int(os.getenv('PORT', '8000'))
 
-HEARTBEAT_FILENAME = '{}' 
-HEARTBEAT_INTERVAL = {}
+HEARTBEAT_FILENAME = "{HEARTBEAT_FILENAME}"
+HEARTBEAT_INTERVAL = {HEARTBEAT_INTERVAL}
 
 if not LINE_TOKEN or not TARGET_USER or not MY_USER_ID:
     raise ValueError('LINE_TOKEN, TARGET_USER, MY_USER_ID の環境変数を設定してください')
@@ -168,19 +164,18 @@ is_live = False
 
 async def send_line_message(user_id, msg):
     url = "https://api.line.me/v2/bot/message/push"
-    headers = {
+    headers = {{
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {LINE_TOKEN}"
-    }
-    data = {"to": user_id, "messages": [{"type": "text", "text": msg}]}
+        "Authorization": f"Bearer {{LINE_TOKEN}}"
+    }}
+    data = {{"to": user_id, "messages": [{{"type": "text", "text": msg}}]}}
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.post(url, headers=headers, json=data)
             if resp.status_code != 200:
-                print(f"LINE送信エラー: {resp.status_code} {resp.text}")
+                print(f"LINE送信エラー: {{resp.status_code}} {{resp.text}}")
     except Exception as e:
-        print(f"LINE送信例外: {e}")
-
+        print(f"LINE送信例外: {{e}}")
 
 client = TikTokLiveClient(unique_id=TARGET_USER)
 
@@ -191,29 +186,27 @@ async def on_connect(event: ConnectEvent):
         print("すでにライブ中として認識しています。通知しません。")
         return
     is_live = True
-    msg = f"🔴 {TARGET_USER} さんがTikTokライブを開始しました！"
+    msg = f"🔴 {{TARGET_USER}} さんがTikTokライブを開始しました！"
     print(msg)
     await send_line_message(MY_USER_ID, msg)
-
 
 async def start_tiktok_client():
     global is_live
     while True:
         try:
-            print(f"[worker] TikTokLiveClient を {TARGET_USER} のために起動します...")
+            print(f"[worker] TikTokLiveClient を {{TARGET_USER}} のために起動します...")
             await client.start()
         except UserOfflineError:
-            print(f"[worker] {TARGET_USER} がオフラインになりました。")
+            print(f"[worker] {{TARGET_USER}} がオフラインになりました。")
             is_live = False
             await asyncio.sleep(5)
         except UserNotFoundError:
-            print(f"[worker] {TARGET_USER} が見つかりません。30秒後に再試行します...")
+            print(f"[worker] {{TARGET_USER}} が見つかりません。30秒後に再試行します...")
             await asyncio.sleep(30)
         except Exception as e:
-            print(f"[worker] TikTokLiveClient 例外: {e} 10秒後に再接続します...")
+            print(f"[worker] TikTokLiveClient 例外: {{e}} 10秒後に再接続します...")
             is_live = False
             await asyncio.sleep(10)
-
 
 async def heartbeat_loop():
     hb_path = Path(HEARTBEAT_FILENAME)
@@ -221,9 +214,8 @@ async def heartbeat_loop():
         try:
             hb_path.write_text(datetime.utcnow().isoformat())
         except Exception as e:
-            print(f"[worker] heartbeat write error: {e}")
+            print(f"[worker] heartbeat write error: {{e}}")
         await asyncio.sleep(HEARTBEAT_INTERVAL)
-
 
 async def main_worker():
     await asyncio.gather(start_tiktok_client(), heartbeat_loop())
@@ -234,8 +226,9 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
         print('[worker] KeyboardInterrupt; exiting')
     except Exception as e:
-        print(f'[worker] fatal exception: {e}')
-""".format(HEARTBEAT_FILENAME, HEARTBEAT_INTERVAL)
+        print(f'[worker] fatal exception: {{e}}')
+"""
+
 
 
 # ------------------------- Web server (FastAPI) -------------------------
