@@ -94,8 +94,11 @@ async def start_web_server():
 
 # ---- メインループ ----
 async def main():
+    # TikTokLiveClient をバックグラウンドで起動
+    asyncio.create_task(client.start())
+    
+    # 他タスクを gather
     await asyncio.gather(
-        client.start(),       # ConnectEvent 用
         poll_tiktok_live(),   # 確実通知用ポーリング
         start_web_server(),   # /health
         keep_awake()          # Render スリープ防止
