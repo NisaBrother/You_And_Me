@@ -6,17 +6,16 @@ from TikTokLive.events import ConnectEvent
 from TikTokLive.client.errors import UserOfflineError, UserNotFoundError
 from fastapi import FastAPI
 import uvicorn
+from datetime import datetime, timedelta
 
 # ---- 環境変数 ----
 LINE_TOKEN = os.getenv("LINE_TOKEN")
 TARGET_USER = os.getenv("TARGET_USER")
 MY_USER_ID = os.getenv("MY_USER_ID")
 PORT = int(os.getenv("PORT", 8000))
-RENDER_EXTERNAL_URL = os.getenv("RENDER_EXTERNAL_URL")  # Render が自動提供してくれる
 
 if not LINE_TOKEN or not TARGET_USER or not MY_USER_ID:
     raise ValueError("LINE_TOKEN, TARGET_USER, MY_USER_ID の環境変数を設定してください")
-
 
 # ---- LINE通知 ----
 async def send_line_message(user_id, msg):
@@ -26,6 +25,7 @@ async def send_line_message(user_id, msg):
         "Authorization": f"Bearer {LINE_TOKEN}"
     }
     data = {"to": user_id, "messages": [{"type": "text", "text": msg}]}
+
     try:
         async with httpx.AsyncClient(timeout=5) as client:
             resp = await client.post(url, headers=headers, json=data)
@@ -35,27 +35,51 @@ async def send_line_message(user_id, msg):
         print(f"LINE送信例外: {e}")
 
 
-# ---- TikTokライブ監視 ----
-client = TikTokLiveClient(unique_id=TARGET_USER)
+# ==================================================
+#   TikTokLiveClient（再起動可能版）
+# ==================================================
+
+client = None
 is_live = False
+last_reset = datetime.utcnow()
 
-@client.on(ConnectEvent)
-async def on_connect(event: ConnectEvent):
-    global is_live
-    if is_live:
-        print("すでにライブ中として認識しています。通知しません。")
-        return
+def create_client():
+    """TikTokLiveClient を完全に新しく作成"""
+    global client
+    client = TikTokLiveClient(unique_id=TARGET_USER)
 
-    is_live = True
-    msg = f"🔴 {TARGET_USER} さんがTikTokライブを開始しました！"
-    print(msg)
-    await send_line_message(MY_USER_ID, msg)
+    @client.on(ConnectEvent)
+    async def on_connect(event: ConnectEvent):
+        global is_live
+        if is_live:
+            print("すでにライブ中として認識しています。通知しません。")
+            return
+
+        is_live = True
+        msg = f"🔴 {TARGET_USER} さんがTikTokライブを開始しました！"
+        print(msg)
+        await send_line_message(MY_USER_ID, msg)
+
+    return client
 
 
+# ---- TikTokClient起動（自動リセット付き） ----
 async def start_tiktok_client():
-    global is_live
+    global client, is_live, last_reset
+
+    create_client()
+
+    error_count = 0
+
     while True:
         try:
+            # ★ 30分経過したらクライアントをリセット
+            if datetime.utcnow() - last_reset > timedelta(minutes=30):
+                print("🟡 30分経過したため TikTokLiveClient を再起動します")
+                client = create_client()
+                last_reset = datetime.utcnow()
+                is_live = False
+
             print(f"TikTokLiveClient を {TARGET_USER} のために起動します...")
             await client.start()
 
@@ -69,12 +93,23 @@ async def start_tiktok_client():
             await asyncio.sleep(30)
 
         except Exception as e:
-            print(f"TikTokLiveClient 例外: {e} 10秒後に再接続します...")
-            is_live = False
+            print(f"TikTokLiveClient 例外: {e}")
+            error_count += 1
+
+            # ★ エラーが5回続いたらリセット
+            if error_count >= 5:
+                print("🔴 エラー多発のため TikTokLiveClient を強制再起動します")
+                client = create_client()
+                last_reset = datetime.utcnow()
+                is_live = False
+                error_count = 0
+
             await asyncio.sleep(10)
 
 
-# ---- FastAPIサーバー ----
+# ==================================================
+# FastAPIサーバー（健康チェック）
+# ==================================================
 app = FastAPI()
 
 @app.get("/health")
@@ -88,33 +123,13 @@ async def start_web_server():
     await server.serve()
 
 
-# ---- スリープ防止：自分自身の /health を叩く ----
-async def keep_alive():
-    if not RENDER_EXTERNAL_URL:
-        print("⚠ RENDER_EXTERNAL_URL が設定されていません。Keep-Alive は無効です。")
-        return
-
-    url = f"{RENDER_EXTERNAL_URL}/health"
-    print(f"[KeepAlive] URL: {url}")
-
-    while True:
-        try:
-            async with httpx.AsyncClient(timeout=10) as client:
-                await client.get(url)
-                print("[KeepAlive] ping sent")
-        except Exception as e:
-            print(f"[KeepAlive] error: {e}")
-
-        await asyncio.sleep(600)  # 10分
-
-
-# ---- メイン ----
+# ---- メインタスク ----
 async def main():
     await asyncio.gather(
         start_tiktok_client(),
-        start_web_server(),
-        keep_alive(),        # ← スリープ防止の追加
+        start_web_server()
     )
+
 
 if __name__ == "__main__":
     asyncio.run(main())
