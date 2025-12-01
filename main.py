@@ -92,33 +92,11 @@ async def start_web_server():
     server = uvicorn.Server(config)
     await server.serve()
 
-
-# ---- スリープ防止：自分自身の /health を叩く ----
-async def keep_alive():
-    if not RENDER_EXTERNAL_URL:
-        print("⚠ RENDER_EXTERNAL_URL が設定されていません。Keep-Alive は無効です。")
-        return
-
-    url = f"{RENDER_EXTERNAL_URL}/health"
-    print(f"[KeepAlive] URL: {url}")
-
-    while True:
-        try:
-            async with httpx.AsyncClient(timeout=10) as client:
-                await client.get(url)
-                print("[KeepAlive] ping sent")
-        except Exception as e:
-            print(f"[KeepAlive] error: {e}")
-
-        await asyncio.sleep(600)  # 10分
-
-
 # ---- メイン ----
 async def main():
     await asyncio.gather(
         start_tiktok_client(),
         start_web_server(),
-        keep_alive(),        # ← スリープ防止の追加
     )
 
 if __name__ == "__main__":
