@@ -65,8 +65,12 @@ async def start_tiktok_client():
 
         except UserOfflineError:
             print(f"[TikTok] {TARGET_USER} がオフラインになりました")
+            if is_live:  # すでにライブ中だった場合のみ通知
+                msg = f"⚪ {TARGET_USER} さんのTikTokライブが終了しました。"
+                await send_line_message(MY_USER_ID, msg)
             is_live = False
             await asyncio.sleep(5)
+
 
         except UserNotFoundError:
             print(f"[TikTok] {TARGET_USER} が見つかりません。30秒後に再試行します...")
