@@ -18,20 +18,24 @@ if not LINE_TOKEN or not TARGET_USER or not MY_USER_ID:
     raise ValueError("LINE_TOKEN, TARGET_USER, MY_USER_ID の環境変数を設定してください")
 
 
-# ---- LINE通知 ----
-async def send_line_message(user_id, msg):
-    url = "https://api.line.me/v2/bot/message/push"
+# ---- LINE通知（broadcast版）----
+async def send_line_message(msg):
+    url = "https://api.line.me/v2/bot/message/broadcast"
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {LINE_TOKEN}"
     }
-    data = {"to": user_id, "messages": [{"type": "text", "text": msg}]}
+    data = {
+        "messages": [
+            {"type": "text", "text": msg}
+        ]
+    }
 
     try:
         async with httpx.AsyncClient(timeout=5) as client:
             resp = await client.post(url, headers=headers, json=data)
             if resp.status_code == 200:
-                print(f"[LINE] 通知成功: {msg}")
+                print(f"[LINE] 全員通知成功: {msg}")
             else:
                 print(f"[LINE] 送信エラー {resp.status_code}: {resp.text}")
     except Exception as e:
@@ -53,7 +57,7 @@ async def on_connect(event: ConnectEvent):
     is_live = True
     msg = f"🔴 {TARGET_USER} さんがTikTokライブを開始しました！"
     print(f"[TikTok] ライブ開始検知: {msg}")
-    await send_line_message(MY_USER_ID, msg)
+    await send_line_message(msg)
 
 
 async def start_tiktok_client():
@@ -67,7 +71,7 @@ async def start_tiktok_client():
             print(f"[TikTok] {TARGET_USER} がオフラインになりました")
             if is_live:
                 msg = f"⚪ {TARGET_USER} さんのTikTokライブが終了しました。"
-                await send_line_message(MY_USER_ID, msg)
+                await send_line_message(msg)
             is_live = False
             await asyncio.sleep(5)
 
@@ -103,7 +107,6 @@ async def handle_webhook(request: Request):
 
             # あなたのLINEへ通知
             await send_line_message(
-                MY_USER_ID,
                 f"👤 新規友だち追加\nUserID: {new_user_id}"
             )
 
