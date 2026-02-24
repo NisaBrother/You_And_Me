@@ -6,6 +6,7 @@ from TikTokLive.events import ConnectEvent
 from TikTokLive.client.errors import UserOfflineError, UserNotFoundError
 from fastapi import FastAPI, Request
 import uvicorn
+import random
 
 # ---- 環境変数 ----
 LINE_TOKEN = os.getenv("LINE_TOKEN")
@@ -40,6 +41,28 @@ async def send_line_message(msg):
                 print(f"[LINE] 送信エラー {resp.status_code}: {resp.text}")
     except Exception as e:
         print(f"[LINE] 送信例外: {e}")
+
+# ---- LINE返信用（reply）----
+async def reply_message(reply_token, msg):
+    url = "https://api.line.me/v2/bot/message/reply"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {LINE_TOKEN}"
+    }
+    data = {
+        "replyToken": reply_token,
+        "messages": [
+            {"type": "text", "text": msg}
+        ]
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            resp = await client.post(url, headers=headers, json=data)
+            if resp.status_code != 200:
+                print(f"[LINE reply] エラー {resp.status_code}: {resp.text}")
+    except Exception as e:
+        print(f"[LINE reply] 送信例外: {e}")
 
 
 # ---- TikTokライブ監視 ----
@@ -100,15 +123,22 @@ async def handle_webhook(request: Request):
     events = body.get("events", [])
 
     for event in events:
-        # 友だち追加イベント
-        if event["type"] == "follow":
-            new_user_id = event["source"]["userId"]
-            print(f"[LINE] 新規友だち追加: {new_user_id}")
+        if event["type"] == "message":
+            user_id = event["source"]["userId"]
+            user_text = event["message"]["text"]
+            reply_token = event["replyToken"]
 
-            # あなたのLINEへ通知
-            await send_line_message(
-                f"👤 新規友だち追加\nUserID: {new_user_id}"
-            )
+            # ---- ここからランダム返信（その他すべて） ----
+            random_replies = [
+                "どうしたの？",
+                "それ詳しく聞きたい。",
+                "急にそんなこと言うのずるい。",
+                "今ちょっとドキッとした。",
+                "もう一回言って？"
+            ]
+
+            reply_text = random.choice(random_replies)
+            await reply_message(reply_token, reply_text)
 
     return {"status": "ok"}
 
