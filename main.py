@@ -67,43 +67,20 @@ async def reply_message(reply_token, msg):
 
 # ---- TikTokライブ監視 ----
 client = TikTokLiveClient(unique_id=TARGET_USER)
-
 is_live = False
-
-# 最後に通知した時刻
-last_notification_time = 0
-
-# 重複防止時間（秒）
-NOTIFICATION_COOLDOWN = 3600   # 1時間
 
 @client.on(ConnectEvent)
 async def on_connect(event: ConnectEvent):
-    global is_live, last_notification_time
-
+    global is_live
     print("[TikTok] ConnectEvent 発火")
-
     if is_live:
         print("[TikTok] すでにライブ中として認識しています。通知はスキップ")
         return
 
-    # ライブ中フラグを先に立てる
     is_live = True
-
-    now = time.time()
-
-    # 一定時間以内なら通知しない
-    if now - last_notification_time < NOTIFICATION_COOLDOWN:
-        print("[TikTok] 重複通知防止のためスキップ")
-        return
-
     msg = f"🔴 {TARGET_USER} さんがTikTokライブを開始しました！"
-
     print(f"[TikTok] ライブ開始検知: {msg}")
-
     await send_line_message(msg)
-
-    # 最後の通知時刻を更新
-    last_notification_time = now
 
 
 async def start_tiktok_client():
@@ -126,9 +103,9 @@ async def start_tiktok_client():
             await asyncio.sleep(30)
 
         except Exception as e:
-            print(f"[TikTok] 例外: {e}。10秒後に再接続します...")
+            print(f"[TikTok] 例外: {e}。30秒後に再接続します...")
             is_live = False
-            await asyncio.sleep(10)
+            await asyncio.sleep(30)
 
 
 # ---- FastAPIサーバー ----
