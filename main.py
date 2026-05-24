@@ -86,14 +86,15 @@ async def on_connect(event: ConnectEvent):
         print("[TikTok] すでにライブ中として認識しています。通知はスキップ")
         return
 
+    # ライブ中フラグを先に立てる
+    is_live = True
+
     now = time.time()
 
     # 一定時間以内なら通知しない
     if now - last_notification_time < NOTIFICATION_COOLDOWN:
         print("[TikTok] 重複通知防止のためスキップ")
         return
-
-    is_live = True
 
     msg = f"🔴 {TARGET_USER} さんがTikTokライブを開始しました！"
 
